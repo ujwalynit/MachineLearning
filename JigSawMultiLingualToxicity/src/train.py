@@ -7,25 +7,31 @@ import torch.nn as nn
 import numpy as np
 
 from model import BERTBaseUncased
-from sklearn import model_selection
 from sklearn import metrics
 from transformers import AdamW
 from transformers import get_linear_schedule_with_warmup
 
 
 def run():
-    dfx = pd.read_csv(config.TRAINING_FILE).fillna("none")
-    dfx.sentiment = dfx.sentiment.apply(lambda x: 1 if x == "positive" else 0)
-
-    df_train, df_valid = model_selection.train_test_split(
-        dfx, test_size=0.1, random_state=42, stratify=dfx.sentiment.values
+    df1 = pd.read_csv(
+        "../input/jigsaw-toxic-comment-train.csv",
+        usecols=["comment_text", "toxic"]
     )
 
-    df_train = df_train.reset_index(drop=True)
-    df_valid = df_valid.reset_index(drop=True)
+    df2 = pd.read_csv(
+        "../input/jigsaw-unintended-bias-train.csv",
+        usecols=["comment_text", "toxic"]
+    )
+
+    df_train = pd.concat(df1, df2).reset_index(drop=True)
+
+    df_valid = pd.read_csv(
+        "../input/validation.csv"
+    )
 
     train_dataset = dataset.BERTDataset(
-        review=df_train.review.values, target=df_train.sentiment.values
+        comment_text=df_train.comment_text.values,
+        target=df_train.toxic.values
     )
 
     train_data_loader = torch.utils.data.DataLoader(
@@ -33,7 +39,8 @@ def run():
     )
 
     valid_dataset = dataset.BERTDataset(
-        review=df_valid.review.values, target=df_valid.sentiment.values
+        comment_text=df_valid.comment_text.values,
+        target=df_valid.toxic.values
     )
 
     valid_data_loader = torch.utils.data.DataLoader(
@@ -78,9 +85,9 @@ def run():
     for epoch in range(config.EPOCHS):
         engine.train_fn(train_data_loader, model, optimizer, device, scheduler)
         outputs, targets = engine.eval_fn(valid_data_loader, model, device)
-        outputs = np.array(outputs) >= 0.5
-        accuracy = metrics.accuracy_score(targets, outputs)
-        print(f"Accuracy Score = {accuracy}")
+        outputs = np.array(targets) >= 0.5
+        accuracy = metrics.roc_auc_score(targets, outputs)
+        print(f"AUC Score = {accuracy}")
         if accuracy > best_accuracy:
             torch.save(model.state_dict(), config.MODEL_PATH)
             best_accuracy = accuracy
