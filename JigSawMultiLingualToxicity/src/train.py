@@ -3,7 +3,7 @@ import dataset
 import engine
 import torch
 import pandas as pd
-import torch.nn as nn
+# import torch.nn as nn
 import numpy as np
 
 from model import BERTBaseUncased
@@ -23,7 +23,7 @@ def run():
         usecols=["comment_text", "toxic"]
     )
 
-    df_train = pd.concat(df1, df2).reset_index(drop=True)
+    df_train = pd.concat([df1, df2], axis=0).reset_index(drop=True)
 
     df_valid = pd.read_csv(
         "../input/validation.csv"
@@ -47,7 +47,8 @@ def run():
         valid_dataset, batch_size=config.VALID_BATCH_SIZE, num_workers=1
     )
 
-    device = torch.device("cuda")
+    # device = torch.device("cuda")
+    device = torch.device("cpu")
     model = BERTBaseUncased()
     model.to(device)
 
@@ -79,7 +80,7 @@ def run():
         optimizer, num_warmup_steps=0, num_training_steps=num_train_steps
     )
 
-    model = nn.DataParallel(model)
+    # model = nn.DataParallel(model)
 
     best_accuracy = 0
     for epoch in range(config.EPOCHS):
